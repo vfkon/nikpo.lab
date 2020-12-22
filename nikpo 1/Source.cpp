@@ -15,6 +15,10 @@ public:
 	Node* GetParent() {
 		return parent;
 	}
+	int GetParentValue() {
+		if (parent)return parent->GetValue();
+		else return 0;
+	}
 	Node* GetChild(int index) {
 		return children[index];
 	}
@@ -29,7 +33,6 @@ private:
 		std::vector<Node*> ptr;
 		for (int i = 0; i < GetAmountofChildren(); i++) {
 			delete current->GetChild(i);
-			//current->GetChild(i);
 		}
 		current->children.erase(children.begin(), children.end());
 	}
@@ -52,50 +55,63 @@ public:
 	
 };
 
-//subfunction of gentree, called for each new level. 
-//Returns amount of nodes left to generate, or, in case of degenerate tree, a number bigger than the initial number.
-int generatebranches1(Node* root, int nodes, int level, int neededlevel, int totalnodes,bool fixed_m=0,int m=0) {
+
+int generatebranches1(Node* root, int nodes, std::vector<int>* m_array, int level, int neededlevel, int totalnodes, bool fixed_m = 0, int m = 0, bool print_stats = 0) {
 	int oldnodes = nodes;
 	int amount = 0;
-	if (level == neededlevel) {//correct level
+	if (level == neededlevel) {
 		if (fixed_m) {
 			amount = m;
 		}
 		else {
-			amount = rand() % 6;
+			amount = rand() % 5;
+			m_array->push_back(amount);
+			if (print_stats)std::cout << amount << "\n";
 		}
 		for (int i = 0; i < amount; i++) {
 			nodes--;
-			root->AddNode(root, totalnodes-nodes);//generate nodes
+			root->AddNode(root, totalnodes-nodes);
 		}
 	}
-	else { //wrong level
-		if (root->GetAmountofChildren() != 0) {//but there are more branches
+	else { 
+		if (root->GetAmountofChildren() != 0) {
 			for (int i = 0; i < root->GetAmountofChildren(); i++) {
-				nodes = generatebranches1(root->GetChild(i), nodes, level + 1, neededlevel, totalnodes); //go to the next branch
+				nodes = generatebranches1(root->GetChild(i), nodes,m_array, level + 1, neededlevel, totalnodes,fixed_m,m,print_stats); 
 			}
 		}
 		if ((!root->GetParent()) && (nodes == oldnodes)) {
 			if (totalnodes - nodes < 10) {
-				return nodes + totalnodes; //tree is degenerate
+				return nodes + totalnodes; 
 			}
 			else {
-				return -1; // tree failed to generate 'totalnodes' but is okay for the task
+				return -1; 
 			}
 		}
 	}
 	return nodes;
 }
-//generates a new random tree. Takes the minimal amount of nodes needed
-Node* gentree(int nodes,bool fixed_m=0,int m=0) {
-	Node* root = new Node(0);
+
+Node* gentree(int nodes,bool fixed_m=0,int m=0,bool print_stats = 0) {
+	if (print_stats)std::cout << "–езультаты генератора случайных чисел:" << std::endl;
+	Node* root = new Node(1);
 	int neededlevel = 0;
 	int totalnodes = nodes;
+	std::vector<int> m_array;
+	float mexp = 0;
 	nodes--;
 	while (nodes > 0) {
-		nodes = generatebranches1(root, nodes, 0, neededlevel,totalnodes,fixed_m,m);
+		nodes = generatebranches1(root, nodes, &m_array, 0, neededlevel,totalnodes,fixed_m,m,print_stats);
 		if (nodes >= totalnodes)return nullptr;
 		neededlevel++;
+	}
+	if (print_stats)std::cout << std::endl << std::endl;
+	for (int i = 0; i < m_array.size(); i++) {
+		mexp += m_array[i];
+	}
+	mexp /= m_array.size();
+	if (mexp < 1.75f || mexp>2.25f) {
+		delete root;
+		return nullptr;
 	}
 	return root;
 }
@@ -111,40 +127,54 @@ int find_leaves(Node* root) {
 		return 1;
 	}
 }
-//recursive part of display tree function, called for every level in the tree. 
-//Returns the amount of printed nodes, which can be used to stop the algorithm.
-int display_tree_level(Node* root, int needed_level,int current_level) {
+
+int display_tree_level(Node* root, int needed_level, int current_level, bool print = 0, bool print_leaves=0) {
 	int printed = 0;
 	if (needed_level != current_level) {
 		if (root->GetAmountofChildren()) {
 			for (int i = 0; i < root->GetAmountofChildren(); i++) {
-				printed+=display_tree_level(root->GetChild(i), needed_level, current_level + 1);
+				printed+=display_tree_level(root->GetChild(i), needed_level, current_level + 1,print,print_leaves);
 			}
 			return printed;
 		}
 		else {
+			if (print_leaves)std::cout << root->GetValue() << "-" << root->GetParentValue ()  << "\t";
 			return 0;
 		}
 	}
 	else {
-		//std::cout << root->GetValue() << "-" << current_level << "\t";
+		if ((!root->GetAmountofChildren()) && (print_leaves))std::cout << root->GetValue() << "-" << root->GetParentValue() << "\t";
+		if(print)std::cout << root->GetValue() << "-" << root->GetParentValue() << "\t";
 		return 1;
 	}
 }
+int determine_height(Node* root, int current_height) {
+	int height = 0;
+	int old_height = 0;
+	if (root->GetAmountofChildren()) {
+		for (int i = 0; i < root->GetAmountofChildren(); i++) {
+			height = determine_height(root->GetChild(i), current_height + 1);
+			if (height > old_height)old_height = height;
+		}
+		return old_height;
+	}
+	else return current_height;
+}
 
-//prints out the tree level by level, returns the amount of nodes printed
-int display_tree(Node* root) {
+
+int display_tree(Node* root,bool print=0,bool print_leaves=0) {
 	bool tree = true;
 	int needed_level=0;
 	int printed = 0;
 	int old_printed = 0;
+	if (print_leaves)std::cout << "¬ис€чие вершины" << ":";
 	while (tree) {
-		//std::cout << "”–ќ¬≈Ќ№" <<needed_level<<":";
-		printed+=display_tree_level(root, needed_level,0);
+		if(print)std::cout << "”–ќ¬≈Ќ№" <<needed_level<<":";
+		printed+=display_tree_level(root, needed_level,0,print,print_leaves);
 		if (printed == old_printed)tree = false;
 		old_printed = printed;
 		needed_level++;
-		//std::cout << std::endl; 
+		if(print||print_leaves)std::cout << std::endl; 
 	}
 	return printed;
 }
@@ -191,13 +221,13 @@ void menu() {
 			std::vector<int> height;
 			srand(time(0));
 			for (int i = 0; i < tree_amount; i++) {
-				root = gentree(400);
+				root = gentree(200,0,0,0);
 				if (root == nullptr)i--;
 				else {
 					leaves.push_back(find_leaves(root));
 					totalnodes.push_back(display_tree(root));
 					alpha.push_back((float)totalnodes[i] / (float)leaves[i]);
-					height.push_back(0);
+					height.push_back(determine_height(root,0));
 					delete root;
 					root = nullptr;
 				}
@@ -206,15 +236,49 @@ void menu() {
 			system("cls");
 			break;
 		}
-		case 46:
-
+		case 50:
+		{
+			Node* root = nullptr;
+			float alpha;
+			int totalnodes;
+			int leaves;
+			int height;
+			srand(time(0));
+			root = gentree(200, 1, 4, 0);
+			leaves = find_leaves(root);
+			totalnodes = display_tree(root, 1);
+			display_tree(root, 0, 1);
+			alpha = (float)totalnodes / (float)leaves;
+			height = determine_height(root, 0);
+			delete root;
+			getchar();
+			system("cls");
 			break;
+		}
+		case 51:
+		{
+			Node* root = nullptr;
+			float alpha;
+			int totalnodes;
+			int leaves;
+			int height;
+			srand(time(0));
+			root = gentree(200, 0, 0, 1);
+			leaves = find_leaves(root);
+			totalnodes = display_tree(root, 1);
+			display_tree(root, 0,1);
+			alpha = (float)totalnodes / (float)leaves;
+			height = determine_height(root, 0);
+			delete root;
+			getchar();
+			system("cls");
+			break;
+		}
 		}
 	}
 }
 int main() {
 	setlocale(LC_ALL, "");
 	menu();
-	//float MX=calc_MX(alpha);
 	return 0;
 }
